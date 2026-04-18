@@ -8,10 +8,21 @@
 LOG_FILE="/var/log/server_setup.log"
 exec 3>&1 
 
-# Comprobar root
+# Comprobar root (Antes de cualquier instalación)
 if [ "$EUID" -ne 0 ]; then
-  whiptail --title "Error de Privilegios" --msgbox "Este script requiere permisos de superusuario.\nEjecuta: sudo $0" 10 50
+  echo "ERROR: Este script requiere permisos de superusuario."
+  echo "Ejecuta: sudo $0"
   exit 1
+fi
+
+# Instalar Dependencias Críticas (incluyendo Gum)
+if ! command -v gum &> /dev/null || ! command -v gpg &> /dev/null; then
+    echo "Instalando dependencias base (gum, gnupg)..."
+    apt update && apt install -y curl gnupg
+    mkdir -p /etc/apt/keyrings
+    curl -fsSL https://repo.charm.sh/apt/gpg.key | gpg --dearmor -o /etc/apt/keyrings/charm.gpg
+    echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | tee /etc/apt/sources.list.d/charm.list
+    apt update && apt install -y gum
 fi
 
 # Detectar usuario real (incluso tras sudo)
@@ -30,29 +41,20 @@ wait_for_apt() {
 }
 
 # --- Pregunta Tipo de Máquina ---
-MACHINE_TYPE=$(whiptail --title "Tipo de Sistema" --menu "Selecciona el tipo de entorno:" 12 60 2 \
-"VPS" "Servidor Virtual (Cloud / VM)" \
-"FISICO" "Servidor Físico (Habilita WOL & Drivers HW)" 3>&1 1>&2 2>&3)
+gum style --foreground 212 --border double --margin "1 2" --padding "1 2" "TIPO DE SISTEMA"
+MACHINE_TYPE=$(gum choose "VPS" "FISICO")
 
-if [ $? -ne 0 ]; then exit 0; fi 
+if [ -z "$MACHINE_TYPE" ]; then exit 0; fi
 
 # --- Menú de Selección ---
 show_menu() {
-    whiptail --title "Server Setup - Ubuntu 24.04 Noble" --checklist \
-    "Usa ESPACIO para seleccionar y ENTER para confirmar:" 22 78 12 \
-    "CORE" "Full Upgrade + Build-Essential (Obligatorio)" ON \
-    "UTILS" "Utils (Nano, Btop, Git, Curl, Zip, Net-Tools)" ON \
-    "HOSTNAME" "Cambiar Hostname del Servidor" ON \
-    "DOCKER" "Docker Engine + Compose + Portainer" ON \
-    "ZSH" "Zsh + OMZ + Temas + Tu Configuración" ON \
-    "LANGS" "Node.js (LTS), Python3, Pipx & UV" ON \
-    "LAZY" "Lazygit & Lazydocker (TUI Tools)" ON \
-    "NEOVIM" "Neovim (Última Estable PPA)" ON \
-    "OPENCODE" "Instalar OpenCode CLI" OFF 3>&1 1>&2 2>&3
+    gum style --foreground 212 --border double --margin "1 2" --padding "1 2" "SERVER SETUP - UBUNTU 24.04 NOBLE"
+    gum choose --no-limit --selected "CORE,UTILS,HOSTNAME,DOCKER,ZSH,LANGS,LAZY,NEOVIM" \
+    "CORE" "UTILS" "HOSTNAME" "DOCKER" "ZSH" "LANGS" "LAZY" "NEOVIM" "OPENCODE" "ZEROTIER"
 }
 
 CHOICES=$(show_menu)
-if [ $? -ne 0 ]; then exit 0; fi
+if [ -z "$CHOICES" ]; then exit 0; fi
 
 TOTAL_TASKS=$(echo $CHOICES | wc -w)
 CURRENT_TASK=0
@@ -62,14 +64,10 @@ run_step() {
     local TEXT="$1"
     local CMD="$2"
     CURRENT_TASK=$((CURRENT_TASK + 1))
-    PERCENT=$((CURRENT_TASK * 100 / TOTAL_TASKS))
-    echo "XXX"
-    echo $PERCENT
-    echo "$TEXT"
-    echo "XXX"
+
     echo ">>> INICIANDO: $TEXT" >> $LOG_FILE
     wait_for_apt
-    eval "$CMD" >> $LOG_FILE 2>&1
+    gum spin --spinner dot --title "$TEXT" -- bash -c "$CMD >> $LOG_FILE 2>&1"
 }
 
 # Inicio de instalación
@@ -111,11 +109,7 @@ run_step() {
 
     # --- 3. HOSTNAME ---
     if [[ $CHOICES == *"HOSTNAME"* ]]; then
-        echo "XXX"
-        echo $PERCENT
-        echo "Esperando input de usuario..."
-        echo "XXX"
-        NEW_HN=$(whiptail --inputbox "Nuevo Hostname:" 8 40 "Server-Ubuntu" 3>&1 1>&2 2>&3)
+        NEW_HN=$(gum input --placeholder "Nuevo Hostname" --value "Server-Ubuntu")
         if [ ! -z "$NEW_HN" ]; then
              run_step "Aplicando Hostname: $NEW_HN" "hostnamectl set-hostname '$NEW_HN' && sed -i \"s/127.0.1.1.*/127.0.1.1 $NEW_HN/\" /etc/hosts"
         fi
@@ -175,7 +169,14 @@ run_step() {
         '
     fi
 
-    # --- 9. ZSH & CONFIG PERSONALIZADA ---
+    # --- 9. ZEROTIER ---
+    if [[ $CHOICES == *"ZEROTIER"* ]]; then
+        run_step "Instalando ZeroTier One..." '
+            curl -s https://install.zerotier.com | bash
+        '
+    fi
+
+    # --- 10. ZSH & CONFIG PERSONALIZADA ---
     if [[ $CHOICES == *"ZSH"* ]]; then
         run_step "Configurando Zsh (Tu Stack Personalizado)..." '
             apt install -y zsh fontconfig unzip
@@ -292,21 +293,27 @@ EOF
     fi
 
     sleep 1 
-} | whiptail --title "Instalación Automatizada" --gauge "Preparando sistema..." 10 70 0
+}
 
 # --- Reporte Final ---
 IP_PUB=$(curl -s --connect-timeout 3 https://ifconfig.me || echo "No Detectada")
 IFACE_FINAL=$(ip route | grep default | awk '{print $5}' | head -n1)
 MAC_FINAL=$(cat /sys/class/net/$IFACE_FINAL/address 2>/dev/null || echo "Desconocida")
+HOSTNAME_FINAL=$(hostname)
 
-whiptail --title "¡Configuración Completada!" --msgbox \
-"Instalación finalizada.\n\n\
-IP Pública: $IP_PUB\n\
-MAC Address: $MAC_FINAL\n\
-Usuario: $REAL_USER\n\
-\n\
-Se RECOMIENDA REINICIAR para cargar el nuevo Kernel y permisos de grupo." 14 70
+gum style \
+	--foreground 212 --border-foreground 212 --border double \
+	--align center --width 50 --margin "1 2" --padding "2 4" \
+	"🚀 CONFIGURACIÓN COMPLETADA" "" \
+	"Perfil del Servidor:" \
+	"------------------------" \
+	"Hostname:  $HOSTNAME_FINAL" \
+	"IP Pública: $IP_PUB" \
+	"MAC Addr:   $MAC_FINAL" \
+	"Usuario:    $REAL_USER" \
+	"" \
+	"Se RECOMIENDA REINICIAR el sistema."
 
-if (whiptail --title "Reiniciar" --yesno "¿Deseas REINICIAR el servidor ahora?" 10 60); then
+if gum confirm "¿Deseas REINICIAR el servidor ahora?"; then
     reboot
 fi
