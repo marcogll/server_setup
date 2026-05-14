@@ -27,8 +27,8 @@ Este script automatiza la configuración de servidores Ubuntu 24.04 (Standard o 
 - **🛠️ Core Stack:** Full Upgrade, Build-Essentials, Curl, Wget, GPG, Unzip.
 - **🐳 Docker Ready:** Docker Engine + Compose + **Portainer** auto-desplegado.
 - **🐚 Zsh Ultimate:** Oh My Zsh + Plugins + FZF + **Oh My Posh** (Tema Amro).
-- **📦 Dev Tools:** Homebrew (Linuxbrew), Node.js LTS, PNPM, Python3, Pipx, UV.
-- **🌐 Network:** Soporte opcional para **ZeroTier One**.
+- **📦 Dev Tools:** Homebrew (Linuxbrew), Node.js LTS, PNPM, Zoxide, Python3, Pipx, UV.
+- **🌐 Network:** Soporte opcional para **ZeroTier One** y **Tailscale**.
 - **⚡ TUI Power:** Neovim, Lazygit, Lazydocker y Btop.
 
 ## 📥 Instalación Rápida (One-Liner)
