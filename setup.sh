@@ -4,22 +4,81 @@
 #  SERVER SETUP ASSISTANT - UBUNTU 24.04 (Optimized for Minimized & TUI)
 # =============================================================================
 
+# --- Catppuccin Frappe Colors ---
+export FR_ROSEWATER="#f2d5cf"
+export FR_FLAMINGO="#eebebe"
+export FR_PINK="#f4b8e4"
+export FR_MAUVE="#ca9ee6"
+export FR_RED="#e78284"
+export FR_MAROON="#ea999c"
+export FR_PEACH="#ef9f76"
+export FR_YELLOW="#e5c890"
+export FR_GREEN="#a6d189"
+export FR_TEAL="#81c8be"
+export FR_SKY="#99d1db"
+export FR_SAPPHIRE="#85c1dc"
+export FR_BLUE="#8caaee"
+export FR_LAVENDER="#babbf1"
+export FR_TEXT="#c6d0f5"
+export FR_SUBTEXT1="#b5bfe2"
+export FR_SUBTEXT0="#a5adce"
+export FR_OVERLAY2="#949cbb"
+export FR_OVERLAY1="#838ba7"
+export FR_OVERLAY0="#737994"
+export FR_SURFACE2="#626880"
+export FR_SURFACE1="#51576d"
+export FR_SURFACE0="#414559"
+export FR_BASE="#303446"
+export FR_MANTLE="#292c3c"
+export FR_CRUST="#232634"
+
+# --- Gum Theme Config ---
+export GUM_CHOOSE_CURSOR_FOREGROUND="$FR_MAUVE"
+export GUM_CHOOSE_HEADER_FOREGROUND="$FR_BLUE"
+export GUM_CHOOSE_SELECTED_FOREGROUND="$FR_MAUVE"
+export GUM_CONFIRM_PROMPT_FOREGROUND="$FR_YELLOW"
+export GUM_CONFIRM_SELECTED_BACKGROUND="$FR_MAUVE"
+export GUM_CONFIRM_UNSELECTED_BACKGROUND="$FR_SURFACE0"
+export GUM_INPUT_CURSOR_FOREGROUND="$FR_MAUVE"
+export GUM_INPUT_PROMPT_FOREGROUND="$FR_SKY"
+export GUM_SPIN_SPINNER_FOREGROUND="$FR_MAUVE"
+export GUM_SPIN_TITLE_FOREGROUND="$FR_TEXT"
+
 # --- Configuración Inicial ---
-LOG_FILE="/var/log/server_setup.log"
+export LOG_FILE="/var/log/server_setup.log"
 exec 3>&1 
+
+# Comprobar e instalar dependencias críticas (Gum)
+bootstrap_dependencies() {
+    if ! command -v gum &> /dev/null; then
+        echo "Instalando Gum (Charm.sh) para una mejor interfaz..."
+        apt update && apt install -y curl gpg
+        mkdir -p /etc/apt/keyrings
+        curl -fsSL https://repo.charm.sh/apt/gpg.key | gpg --dearmor -o /etc/apt/keyrings/charm.gpg
+        echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | tee /etc/apt/sources.list.d/charm.list
+        apt update && apt install -y gum
+    fi
+}
 
 # Comprobar root
 if [ "$EUID" -ne 0 ]; then
-  whiptail --title "Error de Privilegios" --msgbox "Este script requiere permisos de superusuario.\nEjecuta: sudo $0" 10 50
+  if command -v gum &> /dev/null; then
+    gum style --foreground "$FR_RED" --border double --margin "1 2" --padding "1 2" \
+    "Error de Privilegios: Este script requiere permisos de superusuario." "Ejecuta: sudo $0"
+  else
+    whiptail --title "Error de Privilegios" --msgbox "Este script requiere permisos de superusuario.\nEjecuta: sudo $0" 10 50
+  fi
   exit 1
 fi
 
+bootstrap_dependencies
+
 # Detectar usuario real (incluso tras sudo)
-REAL_USER=${SUDO_USER:-$USER}
+export REAL_USER=${SUDO_USER:-$USER}
 if [ "$REAL_USER" == "root" ]; then
-    USER_HOME="/root"
+    export USER_HOME="/root"
 else
-    USER_HOME=$(getent passwd "$REAL_USER" | cut -d: -f6)
+    export USER_HOME=$(getent passwd "$REAL_USER" | cut -d: -f6)
 fi
 
 # Función para esperar si APT está bloqueado
@@ -30,29 +89,49 @@ wait_for_apt() {
 }
 
 # --- Pregunta Tipo de Máquina ---
-MACHINE_TYPE=$(whiptail --title "Tipo de Sistema" --menu "Selecciona el tipo de entorno:" 12 60 2 \
-"VPS" "Servidor Virtual (Cloud / VM)" \
-"FISICO" "Servidor Físico (Habilita WOL & Drivers HW)" 3>&1 1>&2 2>&3)
+echo "Selecciona el tipo de entorno:"
+MACHINE_TYPE=$(gum choose "VPS (Servidor Virtual / VM)" "FISICO (Servidor Físico)")
 
-if [ $? -ne 0 ]; then exit 0; fi 
+if [[ $MACHINE_TYPE == *"VPS"* ]]; then
+    MACHINE_TYPE="VPS"
+else
+    MACHINE_TYPE="FISICO"
+fi
 
 # --- Menú de Selección ---
 show_menu() {
-    whiptail --title "Server Setup - Ubuntu 24.04 Noble" --checklist \
-    "Usa ESPACIO para seleccionar y ENTER para confirmar:" 22 78 12 \
-    "CORE" "Full Upgrade + Build-Essential (Obligatorio)" ON \
-    "UTILS" "Utils (Nano, Btop, Git, Curl, Zip, Net-Tools)" ON \
-    "HOSTNAME" "Cambiar Hostname del Servidor" ON \
-    "DOCKER" "Docker Engine + Compose + Portainer" ON \
-    "ZSH" "Zsh + OMZ + Temas + Tu Configuración" ON \
-    "LANGS" "Node.js (LTS), Python3, Pipx & UV" ON \
-    "LAZY" "Lazygit & Lazydocker (TUI Tools)" ON \
-    "NEOVIM" "Neovim (Última Estable PPA)" ON \
-    "OPENCODE" "Instalar OpenCode CLI" OFF 3>&1 1>&2 2>&3
+    gum choose --no-limit --header "Selecciona los componentes a instalar (Espacio para marcar, Enter para confirmar):" \
+    "CORE: Full Upgrade + Build-Essential (Obligatorio)" \
+    "UTILS: Utils (Nano, Btop, Git, Curl, Zip, Net-Tools)" \
+    "HOSTNAME: Cambiar Hostname del Servidor" \
+    "DOCKER: Docker Engine + Compose + Portainer" \
+    "ZSH: Zsh + OMZ + Temas + Tu Configuración" \
+    "LANGS: Node.js (LTS), Python3, Pipx & UV" \
+    "LAZY: Lazygit & Lazydocker (TUI Tools)" \
+    "NEOVIM: Neovim (Última Estable PPA)" \
+    "OPENCODE: Instalar OpenCode CLI" \
+    "BREW: Homebrew (Linuxbrew)" \
+    "PNPM: Fast Package Manager" \
+    "ZEROTIER: ZeroTier One VPN"
 }
 
-CHOICES=$(show_menu)
-if [ $? -ne 0 ]; then exit 0; fi
+CHOICES_RAW=$(show_menu)
+if [ -z "$CHOICES_RAW" ]; then exit 0; fi
+
+# Convertir la salida de gum (líneas) a un formato compatible con el script
+CHOICES=""
+[[ "$CHOICES_RAW" == *"CORE"* ]] && CHOICES="$CHOICES CORE"
+[[ "$CHOICES_RAW" == *"UTILS"* ]] && CHOICES="$CHOICES UTILS"
+[[ "$CHOICES_RAW" == *"HOSTNAME"* ]] && CHOICES="$CHOICES HOSTNAME"
+[[ "$CHOICES_RAW" == *"DOCKER"* ]] && CHOICES="$CHOICES DOCKER"
+[[ "$CHOICES_RAW" == *"ZSH"* ]] && CHOICES="$CHOICES ZSH"
+[[ "$CHOICES_RAW" == *"LANGS"* ]] && CHOICES="$CHOICES LANGS"
+[[ "$CHOICES_RAW" == *"LAZY"* ]] && CHOICES="$CHOICES LAZY"
+[[ "$CHOICES_RAW" == *"NEOVIM"* ]] && CHOICES="$CHOICES NEOVIM"
+[[ "$CHOICES_RAW" == *"OPENCODE"* ]] && CHOICES="$CHOICES OPENCODE"
+[[ "$CHOICES_RAW" == *"BREW"* ]] && CHOICES="$CHOICES BREW"
+[[ "$CHOICES_RAW" == *"PNPM"* ]] && CHOICES="$CHOICES PNPM"
+[[ "$CHOICES_RAW" == *"ZEROTIER"* ]] && CHOICES="$CHOICES ZEROTIER"
 
 TOTAL_TASKS=$(echo $CHOICES | wc -w)
 CURRENT_TASK=0
@@ -62,14 +141,11 @@ run_step() {
     local TEXT="$1"
     local CMD="$2"
     CURRENT_TASK=$((CURRENT_TASK + 1))
-    PERCENT=$((CURRENT_TASK * 100 / TOTAL_TASKS))
-    echo "XXX"
-    echo $PERCENT
-    echo "$TEXT"
-    echo "XXX"
+
     echo ">>> INICIANDO: $TEXT" >> $LOG_FILE
     wait_for_apt
-    eval "$CMD" >> $LOG_FILE 2>&1
+
+    gum spin --title "$TEXT ($CURRENT_TASK/$TOTAL_TASKS)" -- bash -c "$CMD" >> $LOG_FILE 2>&1
 }
 
 # Inicio de instalación
@@ -111,11 +187,7 @@ run_step() {
 
     # --- 3. HOSTNAME ---
     if [[ $CHOICES == *"HOSTNAME"* ]]; then
-        echo "XXX"
-        echo $PERCENT
-        echo "Esperando input de usuario..."
-        echo "XXX"
-        NEW_HN=$(whiptail --inputbox "Nuevo Hostname:" 8 40 "Server-Ubuntu" 3>&1 1>&2 2>&3)
+        NEW_HN=$(gum input --placeholder "Nuevo Hostname" --value "Server-Ubuntu")
         if [ ! -z "$NEW_HN" ]; then
              run_step "Aplicando Hostname: $NEW_HN" "hostnamectl set-hostname '$NEW_HN' && sed -i \"s/127.0.1.1.*/127.0.1.1 $NEW_HN/\" /etc/hosts"
         fi
@@ -175,50 +247,79 @@ run_step() {
         '
     fi
 
-    # --- 9. ZSH & CONFIG PERSONALIZADA ---
+    # --- 9. BREW ---
+    if [[ $CHOICES == *"BREW"* ]]; then
+        run_step "Instalando Homebrew (Linuxbrew)..." '
+            if ! command -v brew &> /dev/null; then
+                sudo -u '$REAL_USER' bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" "" --unattended
+            fi
+        '
+    fi
+
+    # --- 10. PNPM ---
+    if [[ $CHOICES == *"PNPM"* ]]; then
+        run_step "Instalando PNPM..." '
+            sudo -u '$REAL_USER' bash -c "curl -fsSL https://get.pnpm.io/install.sh | sh -"
+        '
+    fi
+
+    # --- 11. ZEROTIER ---
+    if [[ $CHOICES == *"ZEROTIER"* ]]; then
+        run_step "Instalando ZeroTier One..." '
+            curl -s https://install.zerotier.com | sudo bash
+        '
+    fi
+
+    # --- 12. ZSH & CONFIG PERSONALIZADA ---
     if [[ $CHOICES == *"ZSH"* ]]; then
-        run_step "Configurando Zsh (Tu Stack Personalizado)..." '
-            apt install -y zsh fontconfig unzip
-            
-            # 1. Instalar Oh My Zsh
-            if [ ! -d "$USER_HOME/.oh-my-zsh" ]; then
-                sudo -u '$REAL_USER' sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
-            fi
-            
-            # 2. Plugins externos
-            ZSH_CUSTOM="$USER_HOME/.oh-my-zsh/custom"
-            if [ ! -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions" ]; then
-                sudo -u '$REAL_USER' git clone https://github.com/zsh-users/zsh-autosuggestions $ZSH_CUSTOM/plugins/zsh-autosuggestions
-            fi
-            if [ ! -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ]; then
-                sudo -u '$REAL_USER' git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $ZSH_CUSTOM/plugins/zsh-syntax-highlighting
-            fi
+        # Crear un script temporal para la configuración de ZSH para evitar problemas de comillas anidadas
+        ZSH_SCRIPT=$(mktemp)
+        cat <<'EOF_ZSH' > "$ZSH_SCRIPT"
+apt install -y zsh fontconfig unzip
 
-            # 3. FZF (Instalación manual desde GIT para tener los bindings .fzf.zsh)
-            if [ ! -d "$USER_HOME/.fzf" ]; then
-                sudo -u '$REAL_USER' git clone --depth 1 https://github.com/junegunn/fzf.git $USER_HOME/.fzf
-                sudo -u '$REAL_USER' $USER_HOME/.fzf/install --all --no-bash --no-fish
-            fi
+# 1. Instalar Oh My Zsh
+if [ ! -d "$USER_HOME/.oh-my-zsh" ]; then
+    sudo -u "$REAL_USER" sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+fi
 
-            # 4. Oh My Posh & Temas (Descarga local para evitar error de red en login)
-            curl -s https://ohmyposh.dev/install.sh | bash -s -- -d /usr/local/bin
-            sudo -u '$REAL_USER' mkdir -p $USER_HOME/.poshthemes
-            sudo -u '$REAL_USER' wget https://github.com/JanDeDobbeleer/oh-my-posh/releases/latest/download/themes.zip -O $USER_HOME/.poshthemes/themes.zip
-            sudo -u '$REAL_USER' unzip -o $USER_HOME/.poshthemes/themes.zip -d $USER_HOME/.poshthemes
-            sudo -u '$REAL_USER' chmod u+rw $USER_HOME/.poshthemes/*.json
-            rm $USER_HOME/.poshthemes/themes.zip
-            
-            # 5. TU .zshrc EXACTO (Escapamos las variables internas con backslash)
-            cat <<EOF > $USER_HOME/.zshrc
+# 2. Plugins externos
+ZSH_CUSTOM="$USER_HOME/.oh-my-zsh/custom"
+if [ ! -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions" ]; then
+    sudo -u "$REAL_USER" git clone https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions"
+fi
+if [ ! -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ]; then
+    sudo -u "$REAL_USER" git clone https://github.com/zsh-users/zsh-syntax-highlighting.git "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting"
+fi
+
+# 3. FZF
+if [ ! -d "$USER_HOME/.fzf" ]; then
+    sudo -u "$REAL_USER" git clone --depth 1 https://github.com/junegunn/fzf.git "$USER_HOME/.fzf"
+    sudo -u "$REAL_USER" "$USER_HOME/.fzf/install" --all --no-bash --no-fish
+fi
+
+# 4. Oh My Posh
+curl -s https://ohmyposh.dev/install.sh | bash -s -- -d /usr/local/bin
+sudo -u "$REAL_USER" mkdir -p "$USER_HOME/.poshthemes"
+sudo -u "$REAL_USER" wget https://github.com/JanDeDobbeleer/oh-my-posh/releases/latest/download/themes.zip -O "$USER_HOME/.poshthemes/themes.zip"
+sudo -u "$REAL_USER" unzip -o "$USER_HOME/.poshthemes/themes.zip" -d "$USER_HOME/.poshthemes"
+sudo -u "$REAL_USER" chmod u+rw "$USER_HOME/.poshthemes"/*.json
+rm "$USER_HOME/.poshthemes/themes.zip"
+
+# 5. Generar .zshrc
+cat <<EOF_ZRC > "$USER_HOME/.zshrc"
 # =============================================================================
 #                ZSHRC PARA VPS & SERVERS (Ubuntu 24.04)
 # =============================================================================
 
 # --- PATH Y BINARIOS --------------------------------------------------------
+export PNPM_HOME="\$HOME/.local/share/pnpm"
+export PATH="\$PNPM_HOME:\$PATH"
+
 typeset -U path
 path=(
   \$HOME/.local/bin
   \$HOME/bin
+  /home/linuxbrew/.linuxbrew/bin
   \$HOME/.cargo/bin
   \$HOME/.opencode/bin
   \$path
@@ -236,77 +337,179 @@ plugins=(
   zsh-syntax-highlighting
   colorize
   fzf
+  sudo
+  copypath
+  dirhistory
 )
 
 source \$ZSH/oh-my-zsh.sh
 
 # --- Oh My Posh Prompt ------------------------------------------------------
-# Tema AMRO descargado localmente
 eval "\$(oh-my-posh init zsh --config \$HOME/.poshthemes/amro.omp.json)"
 
-# --- ALIASES DE SISTEMA (Acceso rápido) -------------------------------------
+# --- TERMINAL ---------------------------------------------------------------
+export TERM=xterm-256color
+export EDITOR=nvim
+export VISUAL=nvim
+
+# --- HISTORIAL --------------------------------------------------------------
+HISTSIZE=50000
+SAVEHIST=50000
+HISTFILE=~/.zsh_history
+setopt APPEND_HISTORY
+setopt SHARE_HISTORY
+setopt HIST_IGNORE_DUPS
+setopt HIST_FIND_NO_DUPS
+setopt HIST_IGNORE_SPACE
+setopt HIST_REDUCE_BLANKS
+
+# --- NAVEGACIÓN -------------------------------------------------------------
+setopt AUTO_CD
+setopt AUTO_PUSHD
+setopt PUSHD_IGNORE_DUPS
+
+# Zoxide
+if command -v zoxide &>/dev/null; then
+  eval "\$(zoxide init zsh)"
+  alias cd="z"
+fi
+
+# --- ALIASES DE SISTEMA -----------------------------------------------------
 alias reboot="sudo reboot"
 alias shutdown="sudo shutdown -h now"
 alias cls="clear"
+alias reload="source ~/.zshrc && echo '✅ zshrc recargado'"
 
-# --- DOCKER & PORTAINER -----------------------------------------------------
-alias d="docker"
-alias dc="docker-compose"
-alias dps="docker ps -a"
-alias dex="docker exec -it"
-alias dlog="docker logs -f"
-alias dlsx="docker ps --format \"table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}\t{{.Networks}}\""
+# --- LISTADO DE ARCHIVOS ----------------------------------------------------
+if command -v eza &>/dev/null; then
+  alias ll="eza -alF --icons --git --time-style=relative"
+  alias la="eza -aF --icons"
+  alias l="eza -F --icons"
+  alias lt="eza --tree --level=2 --icons"
+else
+  alias ll="ls -alFh --color=auto"
+  alias la="ls -A --color=auto"
+  alias l="ls -CF --color=auto"
+fi
 
-# --- HERRAMIENTAS TUI -------------------------------------------------------
-alias ld="lazydocker"             
-alias lg="lazygit"               
-alias btop="btop"                 
-alias nv="nvim"                   
-alias v="nano"                    
-
-# --- DESARROLLO Y NAVEGACIÓN ------------------------------------------------
-alias ll="ls -alF"
-alias la="ls -A"
-alias l="ls -CF"
+# --- GIT --------------------------------------------------------------------
 alias gs="git status"
 alias gp="git push"
 alias gl="git pull"
+alias gd="git diff"
+alias gc="git commit -m"
+alias gca="git commit --amend --no-edit"
+alias glo="git log --oneline --graph --decorate -20"
+
+# --- DOCKER -----------------------------------------------------------------
+alias d="docker"
+alias dc="docker compose"
+alias dco="docker-compose"
+alias dps="docker ps -a"
+alias dex="docker exec -it"
+alias dlog="docker logs -f"
+alias dlogn="docker logs --tail=100 -f"
+alias drm="docker rm -f"
+alias dstop="docker stop"
+alias dpull="docker pull"
+alias dimg="docker images"
+alias dprune="docker system prune -af --volumes"
+alias dnet="docker network ls"
+alias dvol="docker volume ls"
+alias dls='docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}"'
+
+dsh() {
+  local name="\${1:?Uso: dsh <nombre_container>}"
+  docker exec -it "\$(docker ps --filter \"name=\$name\" --format '{{.Names}}' | head -1)" \${2:-sh}
+}
+
+dlf() {
+  local cname
+  cname=\$(docker ps --format '{{.Names}}' | fzf --prompt="Container > ")
+  [[ -n "\$cname" ]] && docker logs -f "\$cname"
+}
+
+# --- HERRAMIENTAS TUI -------------------------------------------------------
+alias ld="lazydocker"
+alias lg="lazygit"
+alias nv="nvim"
+alias v="nano"
+command -v btop &>/dev/null && alias top="btop"
 
 # --- FZF (Buscador Inteligente) ---------------------------------------------
-export FZF_DEFAULT_COMMAND="find . -maxdepth 5 -not -path \"*/.*\" -not -path \"*node_modules*\" -not -path \"*target*\" -type f"
+if command -v fd &>/dev/null; then
+  export FZF_DEFAULT_COMMAND="fd --type f --hidden --follow --exclude .git --exclude node_modules --exclude target"
+else
+  export FZF_DEFAULT_COMMAND="find . -maxdepth 5 -not -path '*/.*' -not -path '*node_modules*' -not -path '*target*' -type f"
+fi
+
+export FZF_DEFAULT_OPTS="
+  --height=40%
+  --layout=reverse
+  --border=rounded
+  --info=inline
+  --preview='cat {}'
+  --preview-window=right:50%:wrap
+"
+export FZF_CTRL_T_COMMAND="\$FZF_DEFAULT_COMMAND"
+export FZF_ALT_C_COMMAND="find . -maxdepth 4 -type d -not -path '*/.*'"
+
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 
-# --- HISTORIAL --------------------------------------------------------------
-HISTSIZE=10000
-SAVEHIST=10000
-HISTFILE=~/.zsh_history
-setopt APPEND_HISTORY SHARE_HISTORY HIST_IGNORE_DUPS HIST_FIND_NO_DUPS
+# --- UTILIDADES DE RED ------------------------------------------------------
+alias ports="ss -tulnp"
+alias myip="curl -s ifconfig.me && echo"
+alias localip="hostname -I | awk '{print \$1}'"
+alias ping="ping -c 5"
+
+portpid() {
+  lsof -i ":\${1:?Uso: portpid <puerto>}"
+}
+
+# --- UTILIDADES GENERALES ---------------------------------------------------
+extract() {
+  case "\$1" in
+    *.tar.gz|*.tgz) tar xzf "\$1" ;;
+    *.tar.bz2)      tar xjf "\$1" ;;
+    *.tar.xz)       tar xJf "\$1" ;;
+    *.zip)          unzip "\$1" ;;
+    *.gz)           gunzip "\$1" ;;
+    *.7z)           7z x "\$1" ;;
+    *)              echo "No sé cómo extraer '\$1'" ;;
+  esac
+}
+
+mkcd() { mkdir -p "\$1" && cd "\$1"; }
+
+# --- BANNER DE BIENVENIDA ---------------------------------------------------
+echo ""
+echo "🚀 \$(hostname) · \$(date '+%a %d %b %Y  %H:%M') · \$(uptime -p)"
+echo ""
 
 # --- FINAL --------------------------------------------------
-echo "🚀 Servidor \$(hostname), listo para trabajar ✅"
-export PATH=/home/$USER/.opencode/bin:\$PATH
-EOF
-            chown '$REAL_USER:$REAL_USER' $USER_HOME/.zshrc
-            chsh -s $(which zsh) '$REAL_USER'
-        '
+[ -f ~/.zshrc.local ] && source ~/.zshrc.local
+EOF_ZRC
+
+chown "$REAL_USER:$REAL_USER" "$USER_HOME/.zshrc"
+chsh -s $(which zsh) "$REAL_USER"
+EOF_ZSH
+
+        run_step "Configurando Zsh (Tu Stack Personalizado)..." "bash $ZSH_SCRIPT"
+        rm "$ZSH_SCRIPT"
     fi
 
     sleep 1 
-} | whiptail --title "Instalación Automatizada" --gauge "Preparando sistema..." 10 70 0
+}
 
 # --- Reporte Final ---
 IP_PUB=$(curl -s --connect-timeout 3 https://ifconfig.me || echo "No Detectada")
 IFACE_FINAL=$(ip route | grep default | awk '{print $5}' | head -n1)
 MAC_FINAL=$(cat /sys/class/net/$IFACE_FINAL/address 2>/dev/null || echo "Desconocida")
 
-whiptail --title "¡Configuración Completada!" --msgbox \
-"Instalación finalizada.\n\n\
-IP Pública: $IP_PUB\n\
-MAC Address: $MAC_FINAL\n\
-Usuario: $REAL_USER\n\
-\n\
-Se RECOMIENDA REINICIAR para cargar el nuevo Kernel y permisos de grupo." 14 70
+gum style --foreground "$FR_GREEN" --border rounded --margin "1 2" --padding "1 2" \
+"¡Configuración Completada!" "IP Pública: $IP_PUB" "MAC Address: $MAC_FINAL" "Usuario: $REAL_USER" \
+"Se RECOMIENDA REINICIAR para cargar el nuevo Kernel y permisos de grupo."
 
-if (whiptail --title "Reiniciar" --yesno "¿Deseas REINICIAR el servidor ahora?" 10 60); then
+if gum confirm "¿Deseas REINICIAR el servidor ahora?"; then
     reboot
 fi
