@@ -112,7 +112,9 @@ show_menu() {
     "OPENCODE: Instalar OpenCode CLI" \
     "BREW: Homebrew (Linuxbrew)" \
     "PNPM: Fast Package Manager" \
-    "ZEROTIER: ZeroTier One VPN"
+    "ZOXIDE: Smart cd command" \
+    "ZEROTIER: ZeroTier One VPN" \
+    "TAILSCALE: Tailscale VPN"
 }
 
 CHOICES_RAW=$(show_menu)
@@ -131,7 +133,9 @@ CHOICES=""
 [[ "$CHOICES_RAW" == *"OPENCODE"* ]] && CHOICES="$CHOICES OPENCODE"
 [[ "$CHOICES_RAW" == *"BREW"* ]] && CHOICES="$CHOICES BREW"
 [[ "$CHOICES_RAW" == *"PNPM"* ]] && CHOICES="$CHOICES PNPM"
+[[ "$CHOICES_RAW" == *"ZOXIDE"* ]] && CHOICES="$CHOICES ZOXIDE"
 [[ "$CHOICES_RAW" == *"ZEROTIER"* ]] && CHOICES="$CHOICES ZEROTIER"
+[[ "$CHOICES_RAW" == *"TAILSCALE"* ]] && CHOICES="$CHOICES TAILSCALE"
 
 TOTAL_TASKS=$(echo $CHOICES | wc -w)
 CURRENT_TASK=0
@@ -263,14 +267,28 @@ run_step() {
         '
     fi
 
-    # --- 11. ZEROTIER ---
+    # --- 11. ZOXIDE ---
+    if [[ $CHOICES == *"ZOXIDE"* ]]; then
+        run_step "Instalando Zoxide..." '
+            curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh
+        '
+    fi
+
+    # --- 12. ZEROTIER ---
     if [[ $CHOICES == *"ZEROTIER"* ]]; then
         run_step "Instalando ZeroTier One..." '
             curl -s https://install.zerotier.com | sudo bash
         '
     fi
 
-    # --- 12. ZSH & CONFIG PERSONALIZADA ---
+    # --- 13. TAILSCALE ---
+    if [[ $CHOICES == *"TAILSCALE"* ]]; then
+        run_step "Instalando Tailscale..." '
+            curl -fsSL https://tailscale.com/install.sh | sh
+        '
+    fi
+
+    # --- 14. ZSH & CONFIG PERSONALIZADA ---
     if [[ $CHOICES == *"ZSH"* ]]; then
         # Crear un script temporal para la configuración de ZSH para evitar problemas de comillas anidadas
         ZSH_SCRIPT=$(mktemp)
