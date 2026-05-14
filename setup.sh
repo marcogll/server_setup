@@ -484,6 +484,46 @@ portpid() {
   lsof -i ":\${1:?Uso: portpid <puerto>}"
 }
 
+# --- SERVIDORES RÁPIDOS -----------------------------------------------------
+alias serve="npx serve"
+alias pyserve="python3 -m http.server"
+
+# --- MANEJO DE VENV (PYTHON) ------------------------------------------------
+venv() {
+  local cmd="\${1:?Uso: venv <create|on|off|delete>}"
+  local name="\${2:-venv}"
+
+  case "\$cmd" in
+    create)
+      python3 -m venv "\$name" && echo "✅ Venv '\$name' creado."
+      ;;
+    on)
+      if [ -f "\$name/bin/activate" ]; then
+        source "\$name/bin/activate" && echo "🚀 Venv '\$name' activado."
+      else
+        echo "❌ No se encontró '\$name/bin/activate'."
+      fi
+      ;;
+    off)
+      if command -v deactivate &>/dev/null; then
+        deactivate && echo "💤 Venv desactivado."
+      else
+        echo "⚠️ No hay un venv activo."
+      fi
+      ;;
+    delete)
+      if [ -d "\$name" ]; then
+        rm -rf "\$name" && echo "🗑️ Venv '\$name' eliminado."
+      else
+        echo "❌ El directorio '\$name' no existe."
+      fi
+      ;;
+    *)
+      echo "Uso: venv <create|on|off|delete> [nombre]"
+      ;;
+  esac
+}
+
 # --- UTILIDADES GENERALES ---------------------------------------------------
 extract() {
   case "\$1" in
