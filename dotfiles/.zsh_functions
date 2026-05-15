@@ -1,0 +1,97 @@
+#!/bin/zsh
+# =============================================================================
+#                   FUNCIONES PARA ZSH - SERVIDOR
+# =============================================================================
+
+# --- DOCKER -----------------------------------------------------------------
+# Entrar a un container por nombre parcial
+dsh() {
+  local name="${1:?Uso: dsh <nombre_container>}"
+  docker exec -it "$(docker ps --filter "name=$name" --format '{{.Names}}' | head -1)" ${2:-sh}
+}
+
+# Ver logs de container con fzf
+dlf() {
+  local cname
+  cname=$(docker ps --format '{{.Names}}' | fzf --prompt="Container > ")
+  [[ -n "$cname" ]] && docker logs -f "$cname"
+}
+
+# --- UTILIDADES DE RED ------------------------------------------------------
+# Ver qué proceso usa un puerto
+portpid() {
+  lsof -i ":${1:?Uso: portpid <puerto>}"
+}
+
+# --- MANEJO DE VENV (PYTHON) ------------------------------------------------
+venv() {
+  local cmd="${1:?Uso: venv <create|on|off|delete>}"
+  local name="${2:-venv}"
+
+  case "$cmd" in
+    create)
+      python3 -m venv "$name" && echo "✅ Venv '$name' creado."
+      ;;
+    on)
+      if [ -f "$name/bin/activate" ]; then
+        source "$name/bin/activate" && echo "🚀 Venv '$name' activado."
+      else
+        echo "❌ No se encontró '$name/bin/activate'."
+      fi
+      ;;
+    off)
+      if command -v deactivate &>/dev/null; then
+        deactivate && echo "💤 Venv desactivado."
+      else
+        echo "⚠️ No hay un venv activo."
+      fi
+      ;;
+    delete)
+      if [ -d "$name" ]; then
+        rm -rf "$name" && echo "🗑️ Venv '$name' eliminado."
+      else
+        echo "❌ El directorio '$name' no existe."
+      fi
+      ;;
+    *)
+      echo "Uso: venv <create|on|off|delete> [nombre]"
+      ;;
+  esac
+}
+
+# --- UTILIDADES GENERALES ---------------------------------------------------
+# Extraer archivos automáticamente
+extract() {
+  case "$1" in
+    *.tar.gz|*.tgz) tar xzf "$1" ;;
+    *.tar.bz2)      tar xjf "$1" ;;
+    *.tar.xz)       tar xJf "$1" ;;
+    *.zip)          unzip "$1" ;;
+    *.gz)           gunzip "$1" ;;
+    *.7z)           7z x "$1" ;;
+    *)              echo "No sé cómo extraer '$1'" ;;
+  esac
+}
+
+# Crear directorio y entrar
+mkcd() { mkdir -p "$1" && cd "$1"; }
+
+# --- FZF (Buscador Inteligente) ---------------------------------------------
+if command -v fd &>/dev/null; then
+  export FZF_DEFAULT_COMMAND="fd --type f --hidden --follow --exclude .git --exclude node_modules --exclude target"
+else
+  export FZF_DEFAULT_COMMAND="find . -maxdepth 5 -not -path '*/.*' -not -path '*node_modules*' -not -path '*target*' -type f"
+fi
+
+export FZF_DEFAULT_OPTS="
+  --height=40%
+  --layout=reverse
+  --border=rounded
+  --info=inline
+  --preview='cat {}'
+  --preview-window=right:50%:wrap
+"
+export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
+export FZF_ALT_C_COMMAND="find . -maxdepth 4 -type d -not -path '*/.*'"
+
+[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh

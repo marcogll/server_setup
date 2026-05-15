@@ -1,0 +1,64 @@
+# =============================================================================
+#                    ALIASES PARA ZSH - SERVIDOR
+# =============================================================================
+
+# --- ALIASES DE SISTEMA -----------------------------------------------------
+alias reboot="sudo reboot"
+alias shutdown="sudo shutdown -h now"
+alias cls="clear"
+alias reload="source ~/.zshrc && echo '✅ zshrc recargado'"
+
+# --- LISTADO DE ARCHIVOS ----------------------------------------------------
+if command -v eza &>/dev/null; then
+  alias ll="eza -alF --icons --git --time-style=relative"
+  alias la="eza -aF --icons"
+  alias l="eza -F --icons"
+  alias lt="eza --tree --level=2 --icons"
+else
+  alias ll="ls -alFh --color=auto"
+  alias la="ls -A --color=auto"
+  alias l="ls -CF --color=auto"
+fi
+
+# --- GIT --------------------------------------------------------------------
+alias gs="git status"
+alias gp="git push"
+alias gl="git pull"
+alias gd="git diff"
+alias gc="git commit -m"
+alias gca="git commit --amend --no-edit"
+alias glo="git log --oneline --graph --decorate -20"
+
+# --- DOCKER -----------------------------------------------------------------
+alias d="docker"
+alias dc="docker compose"
+alias dco="docker-compose"
+alias dps="docker ps -a"
+alias dex="docker exec -it"
+alias dlog="docker logs -f"
+alias dlogn="docker logs --tail=100 -f"
+alias drm="docker rm -f"
+alias dstop="docker stop"
+alias dpull="docker pull"
+alias dimg="docker images"
+alias dprune="docker system prune -af --volumes"
+alias dnet="docker network ls"
+alias dvol="docker volume ls"
+alias dls='docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}"'
+
+# --- HERRAMIENTAS TUI -------------------------------------------------------
+alias ld="lazydocker"
+alias lg="lazygit"
+alias nv="nvim"
+alias v="nano"
+command -v btop &>/dev/null && alias top="btop"
+
+# --- UTILIDADES DE RED ------------------------------------------------------
+alias ports="ss -tulnp"
+alias myip="curl -s ifconfig.me && echo"
+alias localip="hostname -I | awk '{print $1}'"
+alias ping="ping -c 5"
+
+# --- SERVIDORES RÁPIDOS -----------------------------------------------------
+alias serve="npx serve"
+alias pyserve="python3 -m http.server"
