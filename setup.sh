@@ -340,7 +340,7 @@ echo ""
     if [[ $CHOICES == *"BREW"* ]]; then
         run_step "Instalando Homebrew (Linuxbrew)..." '
             if ! command -v brew &> /dev/null; then
-                sudo -u '$REAL_USER' bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" "" --unattended
+                sudo -u '$REAL_USER' NONINTERACTIVE=1 bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
             fi
         '
     fi
