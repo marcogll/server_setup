@@ -137,22 +137,107 @@ CHOICES=""
 [[ "$CHOICES_RAW" == *"ZEROTIER"* ]] && CHOICES="$CHOICES ZEROTIER"
 [[ "$CHOICES_RAW" == *"TAILSCALE"* ]] && CHOICES="$CHOICES TAILSCALE"
 
-TOTAL_TASKS=$(echo $CHOICES | wc -w)
-CURRENT_TASK=0
+# --- Progress and Logging ---
+TOTAL_STEPS=0
+CURRENT_STEP=0
 
-# Función auxiliar para logging y progreso
+# Calculate total steps based on choices
+calculate_total_steps() {
+    TOTAL_STEPS=0
+    [[ "$MACHINE_TYPE" == "FISICO" ]] && TOTAL_STEPS=$((TOTAL_STEPS + 1))
+    [[ "$CHOICES" == *"CORE"* ]] && TOTAL_STEPS=$((TOTAL_STEPS + 1))
+    [[ "$CHOICES" == *"UTILS"* ]] && TOTAL_STEPS=$((TOTAL_STEPS + 1))
+    [[ "$CHOICES" == *"HOSTNAME"* ]] && TOTAL_STEPS=$((TOTAL_STEPS + 1))
+    [[ "$CHOICES" == *"DOCKER"* ]] && TOTAL_STEPS=$((TOTAL_STEPS + 1))
+    [[ "$CHOICES" == *"LANGS"* ]] && TOTAL_STEPS=$((TOTAL_STEPS + 1))
+    [[ "$CHOICES" == *"LAZY"* ]] && TOTAL_STEPS=$((TOTAL_STEPS + 1))
+    [[ "$CHOICES" == *"OPENCODE"* ]] && TOTAL_STEPS=$((TOTAL_STEPS + 1))
+    [[ "$CHOICES" == *"NEOVIM"* ]] && TOTAL_STEPS=$((TOTAL_STEPS + 1))
+    [[ "$CHOICES" == *"BREW"* ]] && TOTAL_STEPS=$((TOTAL_STEPS + 1))
+    [[ "$CHOICES" == *"PNPM"* ]] && TOTAL_STEPS=$((TOTAL_STEPS + 1))
+    [[ "$CHOICES" == *"ZOXIDE"* ]] && TOTAL_STEPS=$((TOTAL_STEPS + 1))
+    [[ "$CHOICES" == *"ZEROTIER"* ]] && TOTAL_STEPS=$((TOTAL_STEPS + 1))
+    [[ "$CHOICES" == *"TAILSCALE"* ]] && TOTAL_STEPS=$((TOTAL_STEPS + 1))
+    [[ "$CHOICES" == *"ZSH"* ]] && TOTAL_STEPS=$((TOTAL_STEPS + 1))
+}
+
+# Progress bar display
+show_progress() {
+    local current=$1
+    local total=$2
+    local text="$3"
+    local percent=$((current * 100 / total))
+    local filled=$((percent / 5))
+    local empty=$((20 - filled))
+    
+    local bar=""
+    for ((i=0; i<filled; i++)); do bar="${bar}█"; done
+    for ((i=0; i<empty; i++)); do bar="${bar}░"; done
+    
+    echo ""
+    gum style --foreground "$FR_BLUE" --bold "[$bar] $percent% ($current/$total)"
+    gum style --foreground "$FR_TEXT" "$text"
+    echo ""
+}
+
+# Function to run step with visible progress and error handling
 run_step() {
     local TEXT="$1"
     local CMD="$2"
-    CURRENT_TASK=$((CURRENT_TASK + 1))
-
-    echo ">>> INICIANDO: $TEXT" >> $LOG_FILE
+    CURRENT_STEP=$((CURRENT_STEP + 1))
+    
+    show_progress $CURRENT_STEP $TOTAL_STEPS "$TEXT"
+    
+    echo ">>> INICIANDO [$CURRENT_STEP/$TOTAL_STEPS]: $TEXT" >> $LOG_FILE
+    echo "Comando: $CMD" >> $LOG_FILE
     wait_for_apt
-
-    gum spin --title "$TEXT ($CURRENT_TASK/$TOTAL_TASKS)" -- bash -c "$CMD" >> $LOG_FILE 2>&1
+    
+    # Create temp files for output and error capture
+    local tmp_output=$(mktemp)
+    local tmp_error=$(mktemp)
+    
+    # Run command and capture both stdout and stderr
+    if eval "$CMD" > "$tmp_output" 2>"$tmp_error"; then
+        # Success - append to log
+        cat "$tmp_output" >> $LOG_FILE
+        cat "$tmp_error" >> $LOG_FILE
+        echo "✅ Completado: $TEXT" >> $LOG_FILE
+        gum style --foreground "$FR_GREEN" "  ✓ $TEXT"
+        rm -f "$tmp_output" "$tmp_error"
+        return 0
+    else
+        # Failure - capture error
+        local exit_code=$?
+        cat "$tmp_output" >> $LOG_FILE
+        cat "$tmp_error" >> $LOG_FILE
+        echo "❌ ERROR (código $exit_code): $TEXT" >> $LOG_FILE
+        
+        gum style --foreground "$FR_RED" "  ✗ $TEXT - ERROR"
+        
+        # Show error details to user
+        if [ -s "$tmp_error" ]; then
+            echo ""
+            gum style --foreground "$FR_RED" --bold "  Error detallado:"
+            head -10 "$tmp_error" | while read line; do
+                gum style --foreground "$FR_RED" "    $line"
+            done
+        fi
+        
+        rm -f "$tmp_output" "$tmp_error"
+        return 1
+    fi
 }
 
-# Inicio de instalación
+# Calculate total steps before starting
+calculate_total_steps
+
+# Mostrar resumen de instalacion
+gum style --foreground "$FR_BLUE" --bold --border double --margin "1" --padding "1" \
+    "Instalacion del Servidor" \
+    "Total de pasos: $TOTAL_STEPS"
+echo ""
+
+# Inicio de instalacion
 {
     echo "Iniciando log en $LOG_FILE" > $LOG_FILE
     

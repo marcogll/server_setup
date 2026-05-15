@@ -23,6 +23,8 @@ Este script automatiza la configuración de servidores Ubuntu 24.04 (Standard o 
 ## ✨ Características Principales
 
 - **🎨 Nueva Interfaz TUI:** Impulsada por `gum` de Charm.sh con el tema **Catppuccin Frappe**.
+- **📊 Progreso Visible:** Barra de progreso en tiempo real con feedback visual de cada paso.
+- **🛡️ Manejo de Errores:** Captura y muestra errores detallados para cada paso de instalación.
 - **🖥️ Selección de Entorno:** Optimización para VPS o Servidor Físico (WOL).
 - **🛠️ Core Stack:** Full Upgrade, Build-Essentials, Curl, Wget, GPG, Unzip.
 - **🐳 Docker Ready:** Docker Engine + Compose + **Portainer** auto-desplegado.
