@@ -4,7 +4,7 @@
 
 # --- PATH Y BINARIOS --------------------------------------------------------
 export PNPM_HOME="$HOME/.local/share/pnpm"
-export PATH="$PNPM_HOME:$PATH"
+export PATH="$PNPM_HOME/bin:$PATH"
 
 typeset -U path
 path=(

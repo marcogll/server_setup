@@ -52,6 +52,7 @@ exec 3>&1
 bootstrap_dependencies() {
     if ! command -v gum &> /dev/null; then
         echo "Instalando Gum (Charm.sh) para una mejor interfaz..."
+        export DEBIAN_FRONTEND=noninteractive
         apt update && apt install -y curl gpg
         mkdir -p /etc/apt/keyrings
         curl -fsSL https://repo.charm.sh/apt/gpg.key | gpg --dearmor -o /etc/apt/keyrings/charm.gpg
@@ -308,40 +309,43 @@ echo ""
         '
     fi
 
-    # --- 6. LAZY TOOLS ---
+    # --- 6. BREW ---
+    if [[ $CHOICES == *"BREW"* ]]; then
+        run_step "Instalando Homebrew (Linuxbrew)..." '
+            if ! command -v brew &> /dev/null; then
+                mkdir -p /home/linuxbrew/.linuxbrew
+                chown '$REAL_USER':'$REAL_USER' /home/linuxbrew/.linuxbrew
+                sudo -u '$REAL_USER' NONINTERACTIVE=1 bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+            fi
+        '
+    fi
+
+    # --- 7. LAZY TOOLS ---
     if [[ $CHOICES == *"LAZY"* ]]; then
         run_step "Instalando Lazygit y Lazydocker..." '
-            LG_VER=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | grep -Po "\"tag_name\": \"v\K[^\"]*")
-            curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/latest/download/lazygit_${LG_VER}_Linux_x86_64.tar.gz"
-            tar xf lazygit.tar.gz lazygit
-            install lazygit /usr/local/bin
-            rm lazygit.tar.gz lazygit
-            curl https://raw.githubusercontent.com/jesseduffield/lazydocker/master/scripts/install_update_linux.sh | bash
+            if ! command -v brew &> /dev/null; then
+                mkdir -p /home/linuxbrew/.linuxbrew
+                chown '$REAL_USER':'$REAL_USER' /home/linuxbrew/.linuxbrew
+                sudo -u '$REAL_USER' NONINTERACTIVE=1 bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+            fi
+            export PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
+            brew install lazygit lazydocker
         '
     fi
 
-    # --- 7. OPENCODE ---
+    # --- 8. OPENCODE ---
     if [[ $CHOICES == *"OPENCODE"* ]]; then
         run_step "Instalando OpenCode CLI..." '
-            sudo -u '$REAL_USER' bash -c "curl -sL https://raw.githubusercontent.com/opencode/install/main/install.sh | bash" || true
+            sudo -u '$REAL_USER' bash -c "curl -fsSL https://opencode.ai/install | bash"
         '
     fi
 
-    # --- 8. NEOVIM ---
+    # --- 9. NEOVIM ---
     if [[ $CHOICES == *"NEOVIM"* ]]; then
         run_step "Instalando Neovim (PPA)..." '
             add-apt-repository ppa:neovim-ppa/stable -y
             apt update
             apt install -y neovim
-        '
-    fi
-
-    # --- 9. BREW ---
-    if [[ $CHOICES == *"BREW"* ]]; then
-        run_step "Instalando Homebrew (Linuxbrew)..." '
-            if ! command -v brew &> /dev/null; then
-                sudo -u '$REAL_USER' NONINTERACTIVE=1 bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-            fi
         '
     fi
 
