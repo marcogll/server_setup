@@ -102,6 +102,7 @@ fi
 # --- Menú de Selección ---
 show_menu() {
     gum choose --no-limit --header "Selecciona los componentes a instalar (Espacio para marcar, Enter para confirmar):" \
+    "INSTALL ALL: Instalar Todo" \
     "CORE: Full Upgrade + Build-Essential (Obligatorio)" \
     "UTILS: Utils (Nano, Btop, Git, Curl, Zip, Net-Tools)" \
     "HOSTNAME: Cambiar Hostname del Servidor" \
@@ -121,22 +122,27 @@ show_menu() {
 CHOICES_RAW=$(show_menu)
 if [ -z "$CHOICES_RAW" ]; then exit 0; fi
 
-# Convertir la salida de gum (líneas) a un formato compatible con el script
-CHOICES=""
-[[ "$CHOICES_RAW" == *"CORE"* ]] && CHOICES="$CHOICES CORE"
-[[ "$CHOICES_RAW" == *"UTILS"* ]] && CHOICES="$CHOICES UTILS"
-[[ "$CHOICES_RAW" == *"HOSTNAME"* ]] && CHOICES="$CHOICES HOSTNAME"
-[[ "$CHOICES_RAW" == *"DOCKER"* ]] && CHOICES="$CHOICES DOCKER"
-[[ "$CHOICES_RAW" == *"ZSH"* ]] && CHOICES="$CHOICES ZSH"
-[[ "$CHOICES_RAW" == *"LANGS"* ]] && CHOICES="$CHOICES LANGS"
-[[ "$CHOICES_RAW" == *"LAZY"* ]] && CHOICES="$CHOICES LAZY"
-[[ "$CHOICES_RAW" == *"NEOVIM"* ]] && CHOICES="$CHOICES NEOVIM"
-[[ "$CHOICES_RAW" == *"OPENCODE"* ]] && CHOICES="$CHOICES OPENCODE"
-[[ "$CHOICES_RAW" == *"BREW"* ]] && CHOICES="$CHOICES BREW"
-[[ "$CHOICES_RAW" == *"PNPM"* ]] && CHOICES="$CHOICES PNPM"
-[[ "$CHOICES_RAW" == *"ZOXIDE"* ]] && CHOICES="$CHOICES ZOXIDE"
-[[ "$CHOICES_RAW" == *"ZEROTIER"* ]] && CHOICES="$CHOICES ZEROTIER"
-[[ "$CHOICES_RAW" == *"TAILSCALE"* ]] && CHOICES="$CHOICES TAILSCALE"
+# Si seleccionó INSTALL ALL, activar todo
+if [[ "$CHOICES_RAW" == *"INSTALL ALL"* ]]; then
+    CHOICES="CORE UTILS HOSTNAME DOCKER ZSH LANGS LAZY NEOVIM OPENCODE BREW PNPM ZOXIDE ZEROTIER TAILSCALE"
+else
+    # Convertir la salida de gum (líneas) a un formato compatible con el script
+    CHOICES=""
+    [[ "$CHOICES_RAW" == *"CORE"* ]] && CHOICES="$CHOICES CORE"
+    [[ "$CHOICES_RAW" == *"UTILS"* ]] && CHOICES="$CHOICES UTILS"
+    [[ "$CHOICES_RAW" == *"HOSTNAME"* ]] && CHOICES="$CHOICES HOSTNAME"
+    [[ "$CHOICES_RAW" == *"DOCKER"* ]] && CHOICES="$CHOICES DOCKER"
+    [[ "$CHOICES_RAW" == *"ZSH"* ]] && CHOICES="$CHOICES ZSH"
+    [[ "$CHOICES_RAW" == *"LANGS"* ]] && CHOICES="$CHOICES LANGS"
+    [[ "$CHOICES_RAW" == *"LAZY"* ]] && CHOICES="$CHOICES LAZY"
+    [[ "$CHOICES_RAW" == *"NEOVIM"* ]] && CHOICES="$CHOICES NEOVIM"
+    [[ "$CHOICES_RAW" == *"OPENCODE"* ]] && CHOICES="$CHOICES OPENCODE"
+    [[ "$CHOICES_RAW" == *"BREW"* ]] && CHOICES="$CHOICES BREW"
+    [[ "$CHOICES_RAW" == *"PNPM"* ]] && CHOICES="$CHOICES PNPM"
+    [[ "$CHOICES_RAW" == *"ZOXIDE"* ]] && CHOICES="$CHOICES ZOXIDE"
+    [[ "$CHOICES_RAW" == *"ZEROTIER"* ]] && CHOICES="$CHOICES ZEROTIER"
+    [[ "$CHOICES_RAW" == *"TAILSCALE"* ]] && CHOICES="$CHOICES TAILSCALE"
+fi
 
 # --- Progress and Logging ---
 TOTAL_STEPS=0
@@ -168,8 +174,8 @@ show_progress() {
     local total=$2
     local text="$3"
     local percent=$((current * 100 / total))
-    local filled=$((percent / 5))
-    local empty=$((20 - filled))
+    local filled=$((percent / 3))
+    local empty=$((33 - filled))
     
     local bar=""
     for ((i=0; i<filled; i++)); do bar="${bar}█"; done
@@ -178,6 +184,34 @@ show_progress() {
     echo ""
     gum style --foreground "$FR_BLUE" --bold "[$bar] $percent% ($current/$total)"
     gum style --foreground "$FR_TEXT" "$text"
+    echo ""
+}
+
+# Show installation summary before starting
+show_install_summary() {
+    local items=()
+    [[ "$MACHINE_TYPE" == "FISICO" ]] && items+=("Wake-on-LAN")
+    [[ "$CHOICES" == *"CORE"* ]] && items+=("CORE: Full Upgrade + Build-Essential")
+    [[ "$CHOICES" == *"UTILS"* ]] && items+=("UTILS: CLI Tools")
+    [[ "$CHOICES" == *"HOSTNAME"* ]] && items+=("HOSTNAME: Custom Hostname")
+    [[ "$CHOICES" == *"DOCKER"* ]] && items+=("DOCKER: Engine + Compose + Portainer")
+    [[ "$CHOICES" == *"LANGS"* ]] && items+=("LANGS: Node.js + Python + UV")
+    [[ "$CHOICES" == *"BREW"* ]] && items+=("BREW: Homebrew")
+    [[ "$CHOICES" == *"LAZY"* ]] && items+=("LAZY: Lazygit + Lazydocker")
+    [[ "$CHOICES" == *"OPENCODE"* ]] && items+=("OPENCODE: CLI")
+    [[ "$CHOICES" == *"NEOVIM"* ]] && items+=("NEOVIM: Editor")
+    [[ "$CHOICES" == *"PNPM"* ]] && items+=("PNPM: Package Manager")
+    [[ "$CHOICES" == *"ZOXIDE"* ]] && items+=("ZOXIDE: Smart cd")
+    [[ "$CHOICES" == *"ZEROTIER"* ]] && items+=("ZEROTIER: VPN")
+    [[ "$CHOICES" == *"TAILSCALE"* ]] && items+=("TAILSCALE: VPN")
+    [[ "$CHOICES" == *"ZSH"* ]] && items+=("ZSH: Shell + Dotfiles")
+    
+    local summary="Tipo: $MACHINE_TYPE | Pasos: $TOTAL_STEPS"
+    gum style --foreground "$FR_BLUE" --bold --border rounded --margin "1" --padding "1 2" \
+        "Resumen de Instalación" \
+        "$summary" \
+        "" \
+        "${items[@]}"
     echo ""
 }
 
@@ -232,11 +266,14 @@ run_step() {
 # Calculate total steps before starting
 calculate_total_steps
 
-# Mostrar resumen de instalacion
-gum style --foreground "$FR_BLUE" --bold --border double --margin "1" --padding "1" \
-    "Instalacion del Servidor" \
-    "Total de pasos: $TOTAL_STEPS"
-echo ""
+# Show installation summary
+show_install_summary
+
+# Confirm before starting
+if ! gum confirm "¿Iniciar instalación?"; then
+    echo "Instalación cancelada."
+    exit 0
+fi
 
 # Inicio de instalacion
 {

@@ -22,9 +22,12 @@ Este script automatiza la configuración de servidores Ubuntu 24.04 (Standard o 
 
 ## ✨ Características Principales
 
-- **🎨 Nueva Interfaz TUI:** Impulsada por `gum` de Charm.sh con el tema **Catppuccin Frappe**.
-- **📊 Progreso Visible:** Barra de progreso en tiempo real con feedback visual de cada paso.
-- **🛡️ Manejo de Errores:** Captura y muestra errores detallados para cada paso de instalación.
+- **🎨 Interfaz TUI Mejorada:** Impulsada por `gum` de Charm.sh con el tema **Catppuccin Frappe**.
+- **📊 Progreso Visible:** Barra de progreso en tiempo real con porcentaje y contador de pasos.
+- **📋 Resumen Pre-Instalación:** Muestra todos los componentes seleccionados antes de empezar.
+- **⚡ INSTALL ALL:** Opción para seleccionar e instalar todo con un solo clic.
+- **🛡️ Manejo de Errores:** Captura y muestra errores detallados para cada paso.
+- **✅ Confirmación:** Pide confirmación antes de iniciar la instalación.
 - **🖥️ Selección de Entorno:** Optimización para VPS o Servidor Físico (WOL).
 - **🛠️ Core Stack:** Full Upgrade, Build-Essentials, Curl, Wget, GPG, Unzip.
 - **🐳 Docker Ready:** Docker Engine + Compose + **Portainer** auto-desplegado.
@@ -42,3 +45,12 @@ sudo apt update && sudo apt install -y curl gpg whiptail unzip git && \
 curl -fsSL https://raw.githubusercontent.com/marcogll/server_setup/refs/heads/main/setup.sh -o setup.sh && \
 chmod +x setup.sh && sudo ./setup.sh
 ```
+
+## 🖥️ Flujo de Instalación
+
+1. **Selecciona el tipo de entorno:** VPS o Servidor Físico
+2. **Elige los componentes:** Usa Espacio para marcar/desmarcar, Enter para confirmar
+   - Selecciona **INSTALL ALL** para instalar todo automáticamente
+3. **Revisa el resumen:** Verifica qué se va a instalar
+4. **Confirma:** Presiona `Y` para iniciar o `N` para cancelar
+5. **Observa el progreso:** Barra de avance con porcentaje en tiempo real
