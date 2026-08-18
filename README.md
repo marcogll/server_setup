@@ -1,24 +1,38 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/marcogll/mg_data_storage/refs/heads/main/soul23/logo/soul23_logo.svg" width="110" alt="Soul23">
+  <a href="https://soul23.mx">
+    <picture>
+      <source
+        media="(prefers-color-scheme: dark)"
+        srcset="https://raw.githubusercontent.com/marcogll/mg_data_storage/refs/heads/main/soul23/logo/soul23_logo_wh.png">
+      <source
+        media="(prefers-color-scheme: light)"
+        srcset="https://raw.githubusercontent.com/marcogll/mg_data_storage/refs/heads/main/soul23/logo/soul23_logo_blk.png">
+      <img
+        src="https://raw.githubusercontent.com/marcogll/mg_data_storage/refs/heads/main/soul23/logo/soul23_logo_blk.png"
+        width="110"
+        alt="Soul:23">
+    </picture>
+  </a>
 </p>
 
 <h1 align="center">Server Setup Assistant</h1>
 
 <p align="center">
-  Asistente automatizado para la configuración de servidores Ubuntu 24.04 🚀
+  Script de Ubuntu para la configuración de nuevas instancias de servidor Soul 23.
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Ubuntu_24.04-3a3a3a?style=flat-square&logo=ubuntu&logoColor=white" alt="Ubuntu 24.04">
-  <img src="https://img.shields.io/badge/Docker-3a3a3a?style=flat-square&logo=docker&logoColor=white" alt="Docker">
-  <img src="https://img.shields.io/badge/Zsh-3a3a3a?style=flat-square&logo=zsh&logoColor=white" alt="Zsh">
-  <img src="https://img.shields.io/badge/Homebrew-3a3a3a?style=flat-square&logo=homebrew&logoColor=white" alt="Homebrew">
-  <img src="https://img.shields.io/badge/Catppuccin-3a3a3a?style=flat-square&logo=catppuccin&logoColor=white" alt="Catppuccin">
+  <img src="https://img.shields.io/badge/Ubuntu-3a3a3a?style=flat-square&logo=ubuntu&logoColor=white">
+  <img src="https://img.shields.io/badge/Docker-3a3a3a?style=flat-square&logo=docker&logoColor=white">
+  <img src="https://img.shields.io/badge/Zsh-3a3a3a?style=flat-square&logo=zsh&logoColor=white">
+  <img src="https://img.shields.io/badge/Catppuccin-3a3a3a?style=flat-square&logo=catppuccin&logoColor=white">
 </p>
 
 ---
 
-Este script automatiza la configuración de servidores Ubuntu 24.04 (Standard o Minimized), transformando una instalación limpia en un entorno de producción y desarrollo potente con herramientas modernas.
+## Description
+
+Script automatizado para la configuración de servidores Ubuntu 24.04 para instancias de Soul 23: instalación de dependencias, Docker, Zsh y tema Catppuccin, con instalación one-liner por curl.
 
 ## ✨ Características Principales
 
