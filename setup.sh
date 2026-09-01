@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # =============================================================================
-#  SERVER SETUP ASSISTANT - UBUNTU 24.04 (Optimized for Minimized & TUI)
+#  SERVER SETUP ASSISTANT - UBUNTU / DEBIAN / PROXMOX VE
 # =============================================================================
 
 # --- Catppuccin Frappe Colors ---
@@ -48,6 +48,13 @@ export GUM_SPIN_TITLE_FOREGROUND="$FR_TEXT"
 export LOG_FILE="/var/log/server_setup.log"
 exec 3>&1 
 
+# Detección de Distribución y Sistema
+DISTRO_NAME="Linux"
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    DISTRO_NAME="${PRETTY_NAME:-$NAME}"
+fi
+
 # Comprobar e instalar dependencias críticas (Gum)
 bootstrap_dependencies() {
     if ! command -v gum &> /dev/null; then
@@ -55,7 +62,7 @@ bootstrap_dependencies() {
         export DEBIAN_FRONTEND=noninteractive
         apt update && apt install -y curl gpg
         mkdir -p /etc/apt/keyrings
-        curl -fsSL https://repo.charm.sh/apt/gpg.key | gpg --dearmor -o /etc/apt/keyrings/charm.gpg
+        curl -fsSL https://repo.charm.sh/apt/gpg.key | gpg --dearmor -o /etc/apt/keyrings/charm.gpg 2>/dev/null || true
         echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | tee /etc/apt/sources.list.d/charm.list
         apt update && apt install -y gum
     fi
@@ -82,6 +89,9 @@ else
     export USER_HOME=$(getent passwd "$REAL_USER" | cut -d: -f6)
 fi
 
+# Obtener directorio del script
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # Función para esperar si APT está bloqueado
 wait_for_apt() {
     while fuser /var/lib/dpkg/lock >/dev/null 2>&1 || fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || fuser /var/cache/apt/archives/lock >/dev/null 2>&1; do
@@ -90,6 +100,7 @@ wait_for_apt() {
 }
 
 # --- Pregunta Tipo de Máquina ---
+echo "Sistema detectado: $DISTRO_NAME"
 echo "Selecciona el tipo de entorno:"
 MACHINE_TYPE=$(gum choose "VPS (Servidor Virtual / VM)" "FISICO (Servidor Físico)")
 
@@ -110,7 +121,7 @@ show_menu() {
     "ZSH: Zsh + OMZ + Temas + Tu Configuración" \
     "LANGS: Node.js (LTS), Python3, Pipx & UV" \
     "LAZY: Lazygit & Lazydocker (TUI Tools)" \
-    "NEOVIM: Neovim (Última Estable PPA)" \
+    "NEOVIM: Neovim (Editor de Código)" \
     "OPENCODE: Instalar OpenCode CLI" \
     "BREW: Homebrew (Linuxbrew)" \
     "PNPM: Fast Package Manager" \
@@ -126,7 +137,6 @@ if [ -z "$CHOICES_RAW" ]; then exit 0; fi
 if [[ "$CHOICES_RAW" == *"INSTALL ALL"* ]]; then
     CHOICES="CORE UTILS HOSTNAME DOCKER ZSH LANGS LAZY NEOVIM OPENCODE BREW PNPM ZOXIDE ZEROTIER TAILSCALE"
 else
-    # Convertir la salida de gum (líneas) a un formato compatible con el script
     CHOICES=""
     [[ "$CHOICES_RAW" == *"CORE"* ]] && CHOICES="$CHOICES CORE"
     [[ "$CHOICES_RAW" == *"UTILS"* ]] && CHOICES="$CHOICES UTILS"
@@ -182,8 +192,8 @@ show_progress() {
     for ((i=0; i<empty; i++)); do bar="${bar}░"; done
     
     echo ""
-    gum style --foreground "$FR_BLUE" --bold "[$bar] $percent% ($current/$total)"
-    gum style --foreground "$FR_TEXT" "$text"
+    gum style --foreground "$FR_BLUE" --bold "[Progreso General: $percent%] [$bar] ($current/$total)"
+    gum style --foreground "$FR_MAUVE" --bold "➜ Instalando actualmente: $text"
     echo ""
 }
 
@@ -204,11 +214,11 @@ show_install_summary() {
     [[ "$CHOICES" == *"ZOXIDE"* ]] && items+=("ZOXIDE: Smart cd")
     [[ "$CHOICES" == *"ZEROTIER"* ]] && items+=("ZEROTIER: VPN")
     [[ "$CHOICES" == *"TAILSCALE"* ]] && items+=("TAILSCALE: VPN")
-    [[ "$CHOICES" == *"ZSH"* ]] && items+=("ZSH: Shell + Dotfiles")
+    [[ "$CHOICES" == *"ZSH"* ]] && items+=("ZSH: Shell + Dotfiles & Banner SOUL:23")
     
-    local summary="Tipo: $MACHINE_TYPE | Pasos: $TOTAL_STEPS"
+    local summary="SO: $DISTRO_NAME | Entorno: $MACHINE_TYPE | Total Pasos: $TOTAL_STEPS"
     gum style --foreground "$FR_BLUE" --bold --border rounded --margin "1" --padding "1 2" \
-        "Resumen de Instalación" \
+        "Resumen de Instalación SOUL:23" \
         "$summary" \
         "" \
         "${items[@]}"
@@ -223,36 +233,31 @@ run_step() {
     
     show_progress $CURRENT_STEP $TOTAL_STEPS "$TEXT"
     
-    echo ">>> INICIANDO [$CURRENT_STEP/$TOTAL_STEPS]: $TEXT" >> $LOG_FILE
+    echo ">>> INSTALANDO [$CURRENT_STEP/$TOTAL_STEPS]: $TEXT" >> $LOG_FILE
     echo "Comando: $CMD" >> $LOG_FILE
     wait_for_apt
     
-    # Create temp files for output and error capture
     local tmp_output=$(mktemp)
     local tmp_error=$(mktemp)
     
-    # Run command and capture both stdout and stderr
     if eval "$CMD" > "$tmp_output" 2>"$tmp_error"; then
-        # Success - append to log
         cat "$tmp_output" >> $LOG_FILE
         cat "$tmp_error" >> $LOG_FILE
         echo "✅ Completado: $TEXT" >> $LOG_FILE
-        gum style --foreground "$FR_GREEN" "  ✓ $TEXT"
+        gum style --foreground "$FR_GREEN" "  ✓ Instalación exitosa: $TEXT"
         rm -f "$tmp_output" "$tmp_error"
         return 0
     else
-        # Failure - capture error
         local exit_code=$?
         cat "$tmp_output" >> $LOG_FILE
         cat "$tmp_error" >> $LOG_FILE
         echo "❌ ERROR (código $exit_code): $TEXT" >> $LOG_FILE
         
-        gum style --foreground "$FR_RED" "  ✗ $TEXT - ERROR"
+        gum style --foreground "$FR_RED" "  ✗ Error al instalar: $TEXT"
         
-        # Show error details to user
         if [ -s "$tmp_error" ]; then
             echo ""
-            gum style --foreground "$FR_RED" --bold "  Error detallado:"
+            gum style --foreground "$FR_RED" --bold "  Detalles del error:"
             head -10 "$tmp_error" | while read line; do
                 gum style --foreground "$FR_RED" "    $line"
             done
@@ -282,10 +287,10 @@ fi
     # --- Wake-on-Lan ---
     if [ "$MACHINE_TYPE" == "FISICO" ]; then
         run_step "Configurando Wake-on-Lan..." '
-            apt install -y ethtool network-manager
+            apt install -y ethtool network-manager 2>/dev/null || apt install -y ethtool
             IFACE_WOL=$(ip route | grep default | awk "{print \$5}" | head -n1)
             if [ ! -z "$IFACE_WOL" ]; then
-                ethtool -s $IFACE_WOL wol g
+                ethtool -s $IFACE_WOL wol g 2>/dev/null || true
                 nmcli c modify "$IFACE_WOL" 802-3-ethernet.wake-on-lan magic 2>/dev/null || true
             fi
         '
@@ -306,15 +311,15 @@ fi
 
     # --- 2. UTILS ---
     if [[ $CHOICES == *"UTILS"* ]]; then
-        run_step "Instalando Utilidades CLI..." '
+        run_step "Instalando Utilidades CLI (Nano, Btop, Git, Curl...)..." '
             apt install -y nano btop curl wget git unzip p7zip-full jq tldr bat fd-find ripgrep net-tools
-            ln -sf /usr/bin/batcat /usr/local/bin/bat
+            ln -sf /usr/bin/batcat /usr/local/bin/bat 2>/dev/null || true
         '
     fi
 
     # --- 3. HOSTNAME ---
     if [[ $CHOICES == *"HOSTNAME"* ]]; then
-        NEW_HN=$(gum input --placeholder "Nuevo Hostname" --value "Server-Ubuntu")
+        NEW_HN=$(gum input --placeholder "Nuevo Hostname" --value "Server-S23")
         if [ ! -z "$NEW_HN" ]; then
              run_step "Aplicando Hostname: $NEW_HN" "hostnamectl set-hostname '$NEW_HN' && sed -i \"s/127.0.1.1.*/127.0.1.1 $NEW_HN/\" /etc/hosts"
         fi
@@ -322,7 +327,7 @@ fi
 
     # --- 4. DOCKER ---
     if [[ $CHOICES == *"DOCKER"* ]]; then
-        run_step "Instalando Docker & Portainer..." '
+        run_step "Instalando Docker Engine & Portainer..." '
             if ! command -v docker &> /dev/null; then
                 curl -fsSL https://get.docker.com | sh
             fi
@@ -339,7 +344,7 @@ fi
 
     # --- 5. LANGS (Node, Python, UV) ---
     if [[ $CHOICES == *"LANGS"* ]]; then
-        run_step "Instalando Stack Moderno (Node, Py, UV)..." '
+        run_step "Instalando Stack de Lenguajes (Node.js LTS, Python3, Pipx, UV)..." '
             curl -fsSL https://deb.nodesource.com/setup_lts.x | bash -
             apt install -y nodejs python3 python3-pip python3-venv pipx
             sudo -u '$REAL_USER' bash -c "curl -LsSf https://astral.sh/uv/install.sh | sh"
@@ -359,7 +364,7 @@ fi
 
     # --- 7. LAZY TOOLS ---
     if [[ $CHOICES == *"LAZY"* ]]; then
-        run_step "Instalando Lazygit y Lazydocker..." '
+        run_step "Instalando Herramientas TUI (Lazygit & Lazydocker)..." '
             if ! command -v brew &> /dev/null; then
                 mkdir -p /home/linuxbrew/.linuxbrew
                 chown '$REAL_USER':'$REAL_USER' /home/linuxbrew/.linuxbrew
@@ -379,45 +384,47 @@ fi
 
     # --- 9. NEOVIM ---
     if [[ $CHOICES == *"NEOVIM"* ]]; then
-        run_step "Instalando Neovim (PPA)..." '
-            add-apt-repository ppa:neovim-ppa/stable -y
-            apt update
+        run_step "Instalando Neovim..." '
+            if command -v add-apt-repository &>/dev/null && grep -qi ubuntu /etc/os-release 2>/dev/null; then
+                add-apt-repository ppa:neovim-ppa/stable -y 2>/dev/null || true
+                apt update -y
+            fi
             apt install -y neovim
         '
     fi
 
     # --- 10. PNPM ---
     if [[ $CHOICES == *"PNPM"* ]]; then
-        run_step "Instalando PNPM..." '
+        run_step "Instalando PNPM Package Manager..." '
             sudo -u '$REAL_USER' bash -c "curl -fsSL https://get.pnpm.io/install.sh | sh -"
         '
     fi
 
     # --- 11. ZOXIDE ---
     if [[ $CHOICES == *"ZOXIDE"* ]]; then
-        run_step "Instalando Zoxide..." '
+        run_step "Instalando Zoxide (Smart cd)..." '
             sudo -u '$REAL_USER' bash -c "curl -sSfL https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | sh"
         '
     fi
 
     # --- 12. ZEROTIER ---
     if [[ $CHOICES == *"ZEROTIER"* ]]; then
-        run_step "Instalando ZeroTier One..." '
+        run_step "Instalando ZeroTier One VPN..." '
             curl -s https://install.zerotier.com | sudo bash
         '
     fi
 
     # --- 13. TAILSCALE ---
     if [[ $CHOICES == *"TAILSCALE"* ]]; then
-        run_step "Instalando Tailscale..." '
+        run_step "Instalando Tailscale VPN..." '
             curl -fsSL https://tailscale.com/install.sh | sh
         '
     fi
 
     # --- 14. ZSH & CONFIG PERSONALIZADA ---
     if [[ $CHOICES == *"ZSH"* ]]; then
-        run_step "Configurando Zsh y dotfiles..." '
-            # Instalar Zsh
+        run_step "Configurando Zsh, Dotfiles y Banner SOUL:23..." '
+            # Instalar Zsh y fuentes
             apt install -y zsh fontconfig unzip
 
             # 1. Instalar Oh My Zsh
@@ -445,19 +452,26 @@ fi
             sudo -u "$REAL_USER" mkdir -p "$USER_HOME/.poshthemes"
             sudo -u "$REAL_USER" wget -q https://github.com/JanDeDobbeleer/oh-my-posh/releases/latest/download/themes.zip -O "$USER_HOME/.poshthemes/themes.zip"
             sudo -u "$REAL_USER" unzip -o "$USER_HOME/.poshthemes/themes.zip" -d "$USER_HOME/.poshthemes"
-            sudo -u "$REAL_USER" chmod u+rw "$USER_HOME/.poshthemes"/*.json
+            sudo -u "$REAL_USER" chmod u+rw "$USER_HOME/.poshthemes"/*.json 2>/dev/null || true
             rm -f "$USER_HOME/.poshthemes/themes.zip"
 
-            # 5. Descargar dotfiles desde el repo
-            DOTFILES_BASE="https://raw.githubusercontent.com/marcogll/server_setup/main/dotfiles"
-            sudo -u "$REAL_USER" curl -fsSL "$DOTFILES_BASE/.zshrc" -o "$USER_HOME/.zshrc"
-            sudo -u "$REAL_USER" curl -fsSL "$DOTFILES_BASE/.zsh_aliases" -o "$USER_HOME/.zsh_aliases"
-            sudo -u "$REAL_USER" curl -fsSL "$DOTFILES_BASE/.zsh_functions" -o "$USER_HOME/.zsh_functions"
+            # 5. Instalar dotfiles y banner
+            if [ -d "$SCRIPT_DIR/dotfiles" ]; then
+                cp "$SCRIPT_DIR/dotfiles/.zshrc" "$USER_HOME/.zshrc"
+                cp "$SCRIPT_DIR/dotfiles/.zsh_aliases" "$USER_HOME/.zsh_aliases"
+                cp "$SCRIPT_DIR/dotfiles/.zsh_functions" "$USER_HOME/.zsh_functions"
+                [ -f "$SCRIPT_DIR/dotfiles/.zsh_banner" ] && cp "$SCRIPT_DIR/dotfiles/.zsh_banner" "$USER_HOME/.zsh_banner"
+            else
+                DOTFILES_BASE="https://raw.githubusercontent.com/marcogll/server_setup/main/dotfiles"
+                sudo -u "$REAL_USER" curl -fsSL "$DOTFILES_BASE/.zshrc" -o "$USER_HOME/.zshrc"
+                sudo -u "$REAL_USER" curl -fsSL "$DOTFILES_BASE/.zsh_aliases" -o "$USER_HOME/.zsh_aliases"
+                sudo -u "$REAL_USER" curl -fsSL "$DOTFILES_BASE/.zsh_functions" -o "$USER_HOME/.zsh_functions"
+                sudo -u "$REAL_USER" curl -fsSL "$DOTFILES_BASE/.zsh_banner" -o "$USER_HOME/.zsh_banner"
+            fi
 
             # Asegurar permisos
-            chown "$REAL_USER:$REAL_USER" "$USER_HOME/.zshrc"
-            chown "$REAL_USER:$REAL_USER" "$USER_HOME/.zsh_aliases"
-            chown "$REAL_USER:$REAL_USER" "$USER_HOME/.zsh_functions"
+            chown "$REAL_USER:$REAL_USER" "$USER_HOME/.zshrc" "$USER_HOME/.zsh_aliases" "$USER_HOME/.zsh_functions"
+            [ -f "$USER_HOME/.zsh_banner" ] && chown "$REAL_USER:$REAL_USER" "$USER_HOME/.zsh_banner"
 
             # Cambiar shell por defecto a zsh
             chsh -s $(which zsh) "$REAL_USER"
@@ -473,7 +487,7 @@ IFACE_FINAL=$(ip route | grep default | awk '{print $5}' | head -n1)
 MAC_FINAL=$(cat /sys/class/net/$IFACE_FINAL/address 2>/dev/null || echo "Desconocida")
 
 gum style --foreground "$FR_GREEN" --border rounded --margin "1 2" --padding "1 2" \
-"¡Configuración Completada!" "IP Pública: $IP_PUB" "MAC Address: $MAC_FINAL" "Usuario: $REAL_USER" \
+"¡Configuración Completada en $DISTRO_NAME!" "IP Pública: $IP_PUB" "MAC Address: $MAC_FINAL" "Usuario: $REAL_USER" \
 "Se RECOMIENDA REINICIAR para cargar el nuevo Kernel y permisos de grupo."
 
 if gum confirm "¿Deseas REINICIAR el servidor ahora?"; then

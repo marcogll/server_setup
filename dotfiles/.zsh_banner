@@ -1,0 +1,206 @@
+# ─────────────────────────────────────────────────────────────
+# SOUL:23 LOGIN BANNER
+# ─────────────────────────────────────────────────────────────
+
+if [[ -t 0 || -o interactive ]] && [[ -z "$SOUL23_BANNER_SHOWN" ]]; then
+  export SOUL23_BANNER_SHOWN=1
+
+  RESET=$'\033[0m'
+  BOLD=$'\033[1m'
+  DIM=$'\033[2m'
+  CYAN=$'\033[36m'
+  GREEN=$'\033[32m'
+  YELLOW=$'\033[33m'
+  RED=$'\033[31m'
+  BLUE=$'\033[34m'
+  MAGENTA=$'\033[35m'
+
+  # Distro & Nerd Font Icon Detection
+  DISTRO_NAME="Linux"
+  DISTRO_ICON=""
+
+  if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    DISTRO_NAME="${PRETTY_NAME:-$NAME}"
+  fi
+
+  PVE_VERSION="$(pveversion 2>/dev/null | head -1)"
+
+  if [[ -n "$PVE_VERSION" ]] || [[ "$DISTRO_NAME" =~ "Proxmox" ]]; then
+    IS_PVE=1
+    DISTRO_ICON=""
+    [[ "$DISTRO_NAME" != *"Proxmox"* ]] && DISTRO_NAME="Proxmox VE (${DISTRO_NAME})"
+  elif [[ "$DISTRO_NAME" =~ "Ubuntu" ]]; then
+    IS_PVE=0
+    DISTRO_ICON="󰕈"
+  elif [[ "$DISTRO_NAME" =~ "Debian" ]]; then
+    IS_PVE=0
+    DISTRO_ICON=""
+  elif [[ "$DISTRO_NAME" =~ "Arch" ]]; then
+    IS_PVE=0
+    DISTRO_ICON=""
+  else
+    IS_PVE=0
+    DISTRO_ICON=""
+  fi
+
+  HOSTNAME_S23="$(hostname 2>/dev/null || echo "unknown")"
+  KERNEL="$(uname -r 2>/dev/null || echo "unknown")"
+  UPTIME_S23="$(uptime -p 2>/dev/null | sed 's/^up //' || echo "unknown")"
+
+  # Network Detection
+  LOCAL_IP="$(ip -4 addr show vmbr0 2>/dev/null | awk '/inet / {print $2}' | cut -d/ -f1 | head -1)"
+  if [[ -z "$LOCAL_IP" ]]; then
+    LOCAL_IP="$(ip route get 1.1.1.1 2>/dev/null | awk '{print $7; exit}')"
+  fi
+  if [[ -z "$LOCAL_IP" ]]; then
+    LOCAL_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
+  fi
+
+  TAILSCALE_IP="$(tailscale ip -4 2>/dev/null | head -1)"
+
+  LOAD="$(awk '{print $1" "$2" "$3}' /proc/loadavg 2>/dev/null || echo "unknown")"
+
+  MEM_USED="$(free -h 2>/dev/null | awk '/Mem:/ {print $3}')"
+  MEM_TOTAL="$(free -h 2>/dev/null | awk '/Mem:/ {print $2}')"
+
+  ROOT_DISK="$(df -h / 2>/dev/null | awk 'NR==2 {print $3" / "$2"  ("$5")"}')"
+
+  # Proxmox Workloads (if applicable)
+  if [[ "$IS_PVE" -eq 1 ]] && command -v qm &>/dev/null; then
+    VM_TOTAL="$(qm list 2>/dev/null | awk 'NR>1 {n++} END {print n+0}')"
+    VM_RUNNING="$(qm list 2>/dev/null | awk 'NR>1 && $3=="running" {n++} END {print n+0}')"
+  else
+    VM_TOTAL=""
+    VM_RUNNING=""
+  fi
+
+  if [[ "$IS_PVE" -eq 1 ]] && command -v pct &>/dev/null; then
+    CT_TOTAL="$(pct list 2>/dev/null | awk 'NR>1 {n++} END {print n+0}')"
+    CT_RUNNING="$(pct list 2>/dev/null | awk 'NR>1 && $2=="running" {n++} END {print n+0}')"
+  else
+    CT_TOTAL=""
+    CT_RUNNING=""
+  fi
+
+  # Service Status Helper
+  get_service_status() {
+    local sname="$1"
+    local status
+    status="$(systemctl is-active "$sname" 2>/dev/null)"
+    if [[ "$status" == "active" ]]; then
+      echo -e "${GREEN}● ONLINE${RESET}"
+    else
+      echo -e "${RED}● FAILED${RESET}"
+    fi
+  }
+
+  SSH_STATUS="$(get_service_status ssh)"
+  if [[ "$SSH_STATUS" == *"FAILED"* ]]; then
+    SSH_STATUS="$(get_service_status sshd)"
+  fi
+
+  clear
+
+  printf "${CYAN}"
+  cat <<'EOF'
+██████████  ██████████  ███    ████████       ████████  ██████████
+██      ▀▀  ██      ██  ███    ███  ███       ▀▀     █  ▀▀▀    ▄██
+██▄▄        ██      ██  ███    ███  ███            ▄▄█  ▄▄▄    ▀██
+▀▀██▄▄▄▄    ██      ██  ███    ███  ███       ▄▄▄▄▄███   ▀▀  ▄▄██▀
+      ███▄  ██      ██  ███    ███  ███   ▄   ██               ▀██
+        ██  ██      ██  ███    ███  ███   ██  ██               ███     ▄  ▄▄ ▄   ▄
+██      ██  ██     ▄██  ███    ███  ███       ██   ███  ███    ▄██     █ █ █  ▄▀
+██████████  ██████████  ██████████  ████████  ████████  ██████████     █ █ █ █   █
+EOF
+  printf "${RESET}\n"
+
+  printf "┌──────────────────────────────────────────────────────────────────────┐\n"
+  printf "│ ${BOLD}WELCOME TO A S23 SERVER${RESET}                                              │\n"
+  printf "├──────────────────────────────────────────────────────────────────────┤\n"
+  printf "│ First thing: how the fuck did you get this far?                    │\n"
+  printf "│ Second: have fun.                                                   │\n"
+  printf "│ Please don't fix anything if it ain't broken.                      │\n"
+  printf "└──────────────────────────────────────────────────────────────────────┘\n\n"
+
+  printf "${BOLD}SOUL:23 INFRASTRUCTURE${RESET}\n"
+  printf "${DIM}https://soul23.mx  •  https://github.com/marcogll${RESET}\n\n"
+
+  # Box Helper Function to pad strings cleanly
+  # Terminal width for contents is 68 chars
+  printf "┌──────────────────────────────────────────────────────────────────────┐\n"
+  printf "│ NODE                                                                 │\n"
+  printf "├──────────────────────────────────────────────────────────────────────┤\n"
+  printf "│ Host         %-56s│\n" "$HOSTNAME_S23"
+  printf "│ OS / Distro  %-56s│\n" "${DISTRO_ICON}  ${DISTRO_NAME}"
+  if [[ -n "$PVE_VERSION" ]]; then
+    printf "│ Proxmox      %-56s│\n" "${PVE_VERSION}"
+  fi
+  printf "│ Kernel       %-56s│\n" "$KERNEL"
+  printf "│ Uptime       %-56s│\n" "${UPTIME_S23:-unknown}"
+  printf "│ Load         %-56s│\n" "$LOAD"
+  printf "└──────────────────────────────────────────────────────────────────────┘\n\n"
+
+  printf "┌──────────────────────────────────────────────────────────────────────┐\n"
+  printf "│ NETWORK                                                              │\n"
+  printf "├──────────────────────────────────────────────────────────────────────┤\n"
+
+  if [[ -n "$LOCAL_IP" ]]; then
+    if [[ "$IS_PVE" -eq 1 ]]; then
+      printf "│ Local PVE    https://%-48s│\n" "${LOCAL_IP}:8006/"
+    else
+      printf "│ Local IP     %-56s│\n" "${LOCAL_IP}"
+    fi
+  else
+    printf "│ Local IP     %-56s│\n" "unavailable"
+  fi
+
+  if [[ -n "$TAILSCALE_IP" ]]; then
+    if [[ "$IS_PVE" -eq 1 ]]; then
+      printf "│ Tailscale    https://%-48s│\n" "${TAILSCALE_IP}:8006/"
+    else
+      printf "│ Tailscale IP %-56s│\n" "${TAILSCALE_IP}"
+    fi
+    printf "│ SSH Remote   %-56s│\n" "ssh root@${TAILSCALE_IP}"
+  else
+    printf "│ Tailscale    %-56s│\n" "offline / unavailable"
+  fi
+
+  printf "└──────────────────────────────────────────────────────────────────────┘\n\n"
+
+  printf "┌──────────────────────────────────────────────────────────────────────┐\n"
+  printf "│ RESOURCES                                                            │\n"
+  printf "├──────────────────────────────────────────────────────────────────────┤\n"
+  printf "│ Memory       %-56s│\n" "${MEM_USED:-N/A} / ${MEM_TOTAL:-N/A}"
+  printf "│ Root FS      %-56s│\n" "${ROOT_DISK:-N/A}"
+  printf "└──────────────────────────────────────────────────────────────────────┘\n\n"
+
+  if [[ "$IS_PVE" -eq 1 ]]; then
+    printf "┌──────────────────────────────────────────────────────────────────────┐\n"
+    printf "│ WORKLOADS                                                            │\n"
+    printf "├──────────────────────────────────────────────────────────────────────┤\n"
+    printf "│ VMs          %-56s│\n" "${VM_RUNNING:-0} running / ${VM_TOTAL:-0} total"
+    printf "│ Containers   %-56s│\n" "${CT_RUNNING:-0} running / ${CT_TOTAL:-0} total"
+    printf "└──────────────────────────────────────────────────────────────────────┘\n\n"
+  fi
+
+  printf "┌──────────────────────────────────────────────────────────────────────┐\n"
+  printf "│ SERVICES                                                             │\n"
+  printf "├──────────────────────────────────────────────────────────────────────┤\n"
+
+  if [[ "$IS_PVE" -eq 1 ]]; then
+    PVE_PROXY_STATUS="$(get_service_status pveproxy)"
+    PVE_CLUSTER_STATUS="$(get_service_status pve-cluster)"
+    printf "│ pveproxy     %-56b│\n" "$PVE_PROXY_STATUS"
+    printf "│ pve-cluster  %-56b│\n" "$PVE_CLUSTER_STATUS"
+  fi
+
+  if command -v docker &>/dev/null; then
+    DOCKER_STATUS="$(get_service_status docker)"
+    printf "│ docker       %-56b│\n" "$DOCKER_STATUS"
+  fi
+
+  printf "│ ssh          %-56b│\n" "$SSH_STATUS"
+
+  printf "└──────────────────────────────────────────────────────────────────────┘\n\n"
+fi

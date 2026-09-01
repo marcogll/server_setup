@@ -71,6 +71,10 @@ fi
 [ -f ~/.zshrc.local ] && source ~/.zshrc.local
 
 # --- BANNER DE BIENVENIDA ---------------------------------------------------
-echo ""
-echo "🚀 $(hostname) · $(date '+%a %d %b %Y  %H:%M') · $(uptime -p)"
-echo ""
+if [ -f ~/.zsh_banner ]; then
+  source ~/.zsh_banner
+else
+  echo ""
+  echo "🚀 $(hostname) · $(date '+%a %d %b %Y  %H:%M') · $(uptime -p)"
+  echo ""
+fi
